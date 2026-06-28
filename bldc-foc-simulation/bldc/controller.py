@@ -104,6 +104,7 @@ class MPFMPCCController:
     Ts: float                        # Control period [s] (e.g., 1/15000)
     Udc: float = 24.0                # DC-bus voltage [V]
     P: int = 4                       # Pole pairs (for omega_e calculation)
+    ctrl_freq: float = 15000.0       # MPC control frequency [Hz] (matches paper)
     
     # --- Speed PI gains ---
     Kp_w: float = 0.01
@@ -114,6 +115,9 @@ class MPFMPCCController:
     Vmax: float = 12.0               # Max dq voltage magnitude [V]
     
     def __post_init__(self) -> None:
+        # MPC effective control period (paper uses 15 kHz)
+        self._ctrl_Ts = 1.0 / self.ctrl_freq  # ~66.7 μs
+        
         # Speed loop PI (only speed - current loops replaced by MPC)
         self.speed_pi = PIController(self.Kp_w, self.Ki_w, -self.Iq_max, self.Iq_max)
         
@@ -128,7 +132,7 @@ class MPFMPCCController:
         self.Ed_integral = 0.0       # ∫ Ed·dt
         self.Ed_prev = 0.0           # Ed(k-1)
         self.M = 0.1                 # Integral gain factor (Eq.22)
-        self.alpha = 10.0 * self.Ts  # Balance factor α, init α₀ = 10·Ts (Eq.30)
+        self.alpha = 10.0 * self._ctrl_Ts  # Balance factor α, init α₀ = 10·Tctrl (Eq.30)
         
         # --- 8 switching states of 2L-VSI ---
         # (Eq.3 in paper)  S ∈ {000, 100, 110, 010, 011, 001, 101, 111}
@@ -157,7 +161,7 @@ class MPFMPCCController:
         self.Ed_integral = 0.0
         self.Ed_prev = 0.0
         self.M = 0.1
-        self.alpha = 10.0 * self.Ts
+        self.alpha = 10.0 * self._ctrl_Ts
         self._prev_switch = (0, 0, 0)
     
     # ----------------------------------------------------------------
@@ -198,18 +202,16 @@ class MPFMPCCController:
         ud_k: float,            # ud(k) - d-axis voltage (applied this period)
         uq_k: float,            # uq(k) - q-axis voltage (applied this period)
         theta_e: float,         # Electrical angle [rad]
-        dt: float,              # Time step (same as Ts)
+        dt: float,              # Time step (= sim dt, may differ from ctrl_Ts)
     ) -> tuple[float, float]:
         """
-        Main MPF-MPCC update.
-        
-        Returns:
-            vd_opt, vq_opt  - optimal dq voltages for the next period
+        Main MPF-MPCC update. Returns optimal Vd, Vq for the next period.
         """
         omega_e = self.P * omega_m   # Electrical angular velocity [rad/s]
+        Tc = self._ctrl_Ts           # Effective control period
         
         # ============================================================
-        # Step 1: Speed loop PI → iq_ref
+        # Step 1: Speed loop PI → iq_ref  (uses sim dt)
         # ============================================================
         iq_ref = self.speed_pi.update(omega_ref - omega_m, dt)
         id_ref = 0.0   # MTPA: id=0 control for SPMSM
@@ -226,44 +228,39 @@ class MPFMPCCController:
         
         # ============================================================
         # Step 3: One-step delay compensation (Eq.24-25)
-        #   Predict Idq(k+1) under the PREVIOUS optimal switch state
+        #   Predict Idq(k+1) using CURRENT voltage & current differences
+        #   ΔIdq(k+1)|S(k+1) = ΔIdq(k) + α·ΔUdq(k) + β·|ΔIdq(k)|·ΔIdq(k)⁻¹
+        #   where β·|ΔI|·ΔI⁻¹ = [Tc·ωe·Δiq,  -Tc·ωe·Δid]ᵀ
         # ============================================================
-        # Voltage change caused by delay compensation
-        _ud_k1_comp, _uq_k1_comp = self._switch_to_dq(
-            self._prev_switch, self.Udc, theta_e
-        )
-        delta_ud_comp = _ud_k1_comp - ud_k
-        delta_uq_comp = _uq_k1_comp - uq_k
-        
-        # Predicted current change at (k+1) (Eq.10)
-        delta_id_k1 = delta_id + self.alpha * delta_ud_comp + self.Ts * omega_e * delta_iq
-        delta_iq_k1 = delta_iq + self.alpha * delta_uq_comp - self.Ts * omega_e * delta_id
+        delta_id_k1 = delta_id + self.alpha * delta_ud + Tc * omega_e * delta_iq
+        delta_iq_k1 = delta_iq + self.alpha * delta_uq - Tc * omega_e * delta_id
         
         # Compensated current at (k+1) (Eq.24)
         id_k1 = id_k + delta_id_k1
         iq_k1 = iq_k + delta_iq_k1
         
         # ============================================================
-        # Step 4: Enumerate all 8 switching states (Eq.26-27, 7)
-        #   For each state, predict Idq(k+2) and evaluate cost g
-        #   Select state that minimizes g
+        # Step 4: Enumerate 8 switching states (Eq.26-27, 7)
+        #   For each state S, predict Idq(k+2) and evaluate cost g
+        #   ΔIdq(k+2)|S(k+2) = ΔIdq(k+1) + α·ΔUdq_S + β·|ΔIdq(k+1)|·ΔIdq(k+1)⁻¹
+        #   where ΔUdq_S = U_S(k+1) − U(k)
         # ============================================================
         g_min = float('inf')
         best_vd = 0.0
         best_vq = 0.0
         
         for sw in self._switch_states:
-            # 4a. Compute dq voltage for this switch state at (k+1)
-            ud_k1_sw, uq_k1_sw = self._switch_to_dq(sw, self.Udc, theta_e)
+            # 4a. dq voltage of this switch state
+            ud_sw, uq_sw = self._switch_to_dq(sw, self.Udc, theta_e)
             
-            # 4b. Voltage difference w.r.t. compensated (k+1) voltage
-            delta_ud_k1 = ud_k1_sw - _ud_k1_comp
-            delta_uq_k1 = uq_k1_sw - _uq_k1_comp
+            # 4b. Voltage diff: candidate state minus current applied voltage
+            delta_ud_sw = ud_sw - ud_k
+            delta_uq_sw = uq_sw - uq_k
             
-            # 4c. Predicted current change ΔIdq(k+2) (Eq.27, truncated version of Eq.10)
-            # Uses compensated current differences
-            delta_id_k2 = delta_id_k1 + self.alpha * delta_ud_k1 + self.Ts * omega_e * delta_iq_k1
-            delta_iq_k2 = delta_iq_k1 + self.alpha * delta_uq_k1 - self.Ts * omega_e * delta_id_k1
+            # 4c. Predicted current change ΔIdq(k+2) (Eq.27)
+            #     Using compensated differences ΔIdq(k+1) as the base
+            delta_id_k2 = delta_id_k1 + self.alpha * delta_ud_sw + Tc * omega_e * delta_iq_k1
+            delta_iq_k2 = delta_iq_k1 + self.alpha * delta_uq_sw - Tc * omega_e * delta_id_k1
             
             # 4d. Predicted (k+2) current (Eq.26)
             id_pred = id_k1 + delta_id_k2
@@ -274,32 +271,33 @@ class MPFMPCCController:
             
             if g < g_min:
                 g_min = g
-                best_vd = ud_k1_sw
-                best_vq = uq_k1_sw
-                self._prev_switch = sw  # save for next period's delay compensation
+                best_vd = ud_sw
+                best_vq = uq_sw
         
         # ============================================================
         # Step 5: Update balance factor α  (Eq.22, 31)
         # ============================================================
         Ed = id_ref - id_k
-        self.Ed_integral += Ed * dt
+        self.Ed_integral += Ed * Tc  # integrate over CONTROL period
         
-        # Compute optimal gain factor M (Eq.22)
-        # M = ³√( 4·[ud(k-1)-ud(k-2)] / [Ed(k)+Ed(k-1)]² )
+        # Optimal gain factor M (Eq.22): M = ³√(4·Δud_prev / (Ed+Ed_prev)²)
         denom = (Ed + self.Ed_prev) ** 2
         if denom > 1e-10:
-            self.M = (4.0 * abs(self.ud_prev2) / denom) ** (1.0 / 3.0)
-        # clamp M to reasonable range
+            numer = abs(self.ud_prev2)
+            if numer > 1e-10:
+                self.M = (4.0 * numer / denom) ** (1.0 / 3.0)
+        # Clamp M to prevent divergence
         self.M = max(0.001, min(self.M, 100.0))
         
-        # Update α (Eq.31): α = Ts / (0.1 + M·∫Ed·dt)
-        self.alpha = self.Ts / (0.1 + self.M * abs(self.Ed_integral) + 1e-10)
-        self.alpha = max(10.0 * self.Ts, min(self.alpha, 1.0))  # clamp
+        # Update α (Eq.31): α = Tc / (0.1 + M·∫Ed·dt)
+        self.alpha = Tc / (0.1 + self.M * abs(self.Ed_integral) + 1e-10)
+        # Keep α within reasonable bounds
+        self.alpha = max(1e-3, min(self.alpha, 10.0))
         
         # ============================================================
         # Step 6: Save history for next period
         # ============================================================
-        self.ud_prev2 = ud_k - self.ud_prev   # Δud(k-1) = ud(k)-ud(k-1) for next M calc
+        self.ud_prev2 = delta_ud       # save Δud(k) for next M calc
         self.id_prev = id_k
         self.iq_prev = iq_k
         self.ud_prev = ud_k
