@@ -26,6 +26,7 @@ RPM2RAD = 2.0 * math.pi / 60.0
 # ---- 电机参数组 ----
 M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
 M_2XALL = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf
+M_MIS   = dict(Rs=2.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5x R (R/L=1667 vs nominal 333)
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
@@ -107,31 +108,45 @@ def exp1():
 
 # ====================  Experiment 2: Parameter Mismatch ====================
 def exp2():
-    """2 param sets: Nominal | 2R,2L,2psif. Conv MPCC uses M_NOM always."""
-    print("\n--- Exp 2: Parameter Mismatch ---")
+    """3x3: Nominal(left) vs 3xR mismatch(right). Conv uses M_NOM always."""
+    print("\n--- Exp 2: Parameter Mismatch (5xR) ---")
     dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
+    mks = [(M_NOM, "Nominal"), (M_MIS, "Param Mismatch (5xR)")]
     
-    fig, ax = plt.subplots(3, 2, figsize=(12, 10))
+    fig, ax = plt.subplots(3, 3, figsize=(16, 10))
     yk = [("w","wr"), ("id",None), ("iq",None)]
     yl = ["Speed [rpm]", "id [A]", "iq [A]"]
+    clabels = [("PI","PI-FOC"),("CMPC","Conv FCS-MPCC"),("MPF","MPF-MPCC")]
     
-    for col, (mkw, mlabel) in enumerate([
-        (M_NOM,   "Nominal"),
-        (M_2XALL, "2R,2L,2psif"),
-    ]):
-        for row, (ct, clabel) in enumerate([("PI","PI"), ("CMPC","CMPC"), ("MPF","MPC")]):
-            print(f"  {clabel} @ {mlabel}...")
+    # Pre-run overlay data
+    r_pi  = run_sim(dt, te, wr, tl, "PI",  M_MIS)
+    r_cmpc= run_sim(dt, te, wr, tl, "CMPC",M_MIS)
+    r_mpf = run_sim(dt, te, wr, tl, "MPC", M_MIS)
+    
+    for col, (mkw, mlabel) in enumerate(mks):
+        for row, (ct, clab) in enumerate(clabels):
+            print(f"  {clab} @ {mlabel}...")
             r = run_sim(dt, te, wr, tl, ct, mkw)
-            a = ax[row, col]
+            a = ax[row, col] if len(mks) > 2 else ax[row, col]
             a.plot(r["t"], r[yk[row][0]], lw=1.0)
             if yk[row][1]: a.plot(r["t"], r[yk[row][1]], "k--", lw=0.7)
-            a.set_title(f"{clabel} ({mlabel})", fontsize=8)
+            a.set_title(f"{clab} ({mlabel})", fontsize=8)
             a.set_ylabel(yl[row]); a.grid(True); a.set_xlabel("Time [s]")
     
-    fig.suptitle("Exp 2: Parameter Mismatch — Conv MPCC prediction uses M_NOM",
-                 fontweight="bold", fontsize=12)
+    # Third column: overlay all 3 controllers under mismatch (same y-axis per row)
+    y_colors = ['C0','C1','C2']
+    for row in range(3):
+        a = ax[row, 2]
+        yd = yk[row][0]
+        a.plot(r_pi["t"],   r_pi[yd],   lw=1.0, color='C0', label="PI-FOC")
+        a.plot(r_cmpc["t"], r_cmpc[yd], lw=1.0, color='C1', label="Conv FCS-MPCC")
+        a.plot(r_mpf["t"],  r_mpf[yd],  lw=1.2, color='C2', label="MPF-MPCC")
+        a.set_title("Overlay under Mismatch", fontsize=9)
+        a.set_ylabel(yl[row]); a.grid(True); a.set_xlabel("Time [s]")
+    
+    fig.suptitle("Exp 2: Nominal vs Parameter Mismatch (5xR)",fontweight="bold",fontsize=12)
     fig.tight_layout(); fig.savefig("fig_exp2.png", dpi=120)
     print("  [OK] fig_exp2.png"); plt.close(fig)
 
@@ -162,7 +177,7 @@ def exp3():
 
 if __name__ == "__main__":
     print("="*60)
-    print("  MPF-MPCC Simulation Suite  (dt=20us, 0-5s)")
+    print("  MPF-MPCC Simulation Suite  (dt=80us, 0-5s)")
     print("="*60)
-    exp1(); exp2(); exp3()
-    print("\nDone!")
+    exp1(); exp2()
+    print("\nDone! Output: fig_exp1.png, fig_exp2.png")
