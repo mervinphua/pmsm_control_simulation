@@ -15,7 +15,7 @@ from bldc.transforms import clarke, inv_clarke, inv_park, park
 
 RPM2RAD = 2.0 * math.pi / 60.0
 M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
-M_MIS   = dict(Rs=2.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5xR
+M_MIS   = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
@@ -100,7 +100,7 @@ def exp_metrics():
     
     # --- Run all combos ---
     ctls = [("PI","PI-FOC"),("CMPC","Conv FCS-MPCC"),("MPF","MPF-MPCC")]
-    mks  = [(M_NOM,"Nominal"),(M_MIS,"5xR Mismatch")]
+    mks  = [(M_NOM,"Nominal"),(M_MIS,"2R,2L,2psif")]
     
     id_rms_arr = np.zeros((3,2))
     iq_std_arr = np.zeros((3,2))

@@ -26,7 +26,7 @@ RPM2RAD = 2.0 * math.pi / 60.0
 # ---- 电机参数组 ----
 M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
 M_2XALL = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf
-M_MIS   = dict(Rs=0.1, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 0.2x R → R/L=67, motor LESS damped
+M_MIS   = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf (matches paper)
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
@@ -109,7 +109,7 @@ def exp1():
 # ====================  Experiment 2: Parameter Mismatch ====================
 def exp2():
     """3x3: Nominal(left) vs 3xR mismatch(right). Conv uses M_NOM always."""
-    print("\n--- Exp 2: Parameter Mismatch (5xR) ---")
+    print("\n--- Exp 2: Parameter Mismatch (2R,2L,2psif) ---")
     dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
@@ -127,7 +127,7 @@ def exp2():
             a.set_title(f"{clab}", fontsize=10)
             a.set_ylabel(yl[row]); a.grid(True); a.set_xlabel("Time [s]")
     
-    fig.suptitle("Exp 2: Parameter Mismatch (0.2xR)", fontweight="bold", fontsize=12)
+    fig.suptitle("Exp 2: Parameter Mismatch (2R, 2L, 2psif)", fontweight="bold", fontsize=12)
     fig.tight_layout(); fig.savefig("fig_exp2.png", dpi=120)
     print("  [OK] fig_exp2.png"); plt.close(fig)
 
