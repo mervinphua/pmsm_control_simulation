@@ -98,7 +98,7 @@ def exp1():
     print("\n--- Exp 1: Nominal ---")
     dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
-    tl = np.zeros(n)
+    tl = np.full(n, 0.02)  # constant load
     r = {}
     for lb, ct in [("PI","PI"),("CMPC","CMPC"),("MPF","MPC")]:
         print(f"  {lb}..."); r[lb] = run_sim(dt, te, wr, tl, ct, M_NOM)
@@ -112,7 +112,7 @@ def exp2():
     print("\n--- Exp 2: Parameter Mismatch (2R,2L,2psif) ---")
     dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
-    tl = np.zeros(n)
+    tl = np.full(n, 0.02)
     fig, ax = plt.subplots(3, 3, figsize=(16, 10))
     yk = [("w","wr"), ("id",None), ("iq",None)]
     yl = ["Speed [rpm]", "id [A]", "iq [A]"]

@@ -86,7 +86,7 @@ def exp_metrics():
     
     dt,te=8e-5,5.0; n=int(te/dt); t=np.arange(n)*dt
     wr=np.where(t<0.5,0.0,np.where(t<2.0,1000.0,2000.0))
-    tl=np.zeros(n)
+    tl=np.full(n, 0.02)  # constant load
     
     # --- Run all combos ---
     ctls = [("PI","PI-FOC"),("CMPC","Conv FCS-MPCC"),("MPF","MPF-MPCC")]
