@@ -146,12 +146,10 @@ class ConventionalMPCCController:
         iq_ref = self.speed_pi.update(omega_ref - omega_m, dt)
         id_ref = 0.0
         
-        # --- Eq.(5): Delay compensation using motor parameters ---
-        # D = [[1-R*Ts/L, -Ts*ωe], [Ts*ωe, 1-R*Ts/L]]
-        # Uses R, L for compensation!
+        # --- Eq.(2)+(5): D = [[1-RTs/L, +Tsωe], [-Tsωe, 1-RTs/L]]
         d11 = 1.0 - self.Rs * Ts / self.Ls
-        d12 = -Ts * omega_e
-        d21 = Ts * omega_e
+        d12 = +Ts * omega_e
+        d21 = -Ts * omega_e
         d22 = 1.0 - self.Rs * Ts / self.Ls
         
         id_k1 = d11*id_k + d12*iq_k + (Ts/self.Ls)*self._prev_vd
@@ -235,7 +233,8 @@ class MPFMPCCController:
         self.Ed_integral = 0.0       # ∫ Ed·dt
         self.Ed_prev = 0.0           # Ed(k-1)
         self.M = 0.1                 # Integral gain factor (Eq.22)
-        self.alpha = 10.0 * self._ctrl_Ts  # Balance factor α, init α₀ = 10·Tctrl (Eq.30)
+        # α₀: paper uses 10·Tc for THEIR motor; we scale to OUR motor's L/R ratio
+        self.alpha = 0.1  # Manual init (~Ts/L equivalent for this motor)
         
         # --- 8 switching states of 2L-VSI ---
         # (Eq.3 in paper)  S ∈ {000, 100, 110, 010, 011, 001, 101, 111}
@@ -264,7 +263,7 @@ class MPFMPCCController:
         self.Ed_integral = 0.0
         self.Ed_prev = 0.0
         self.M = 0.1
-        self.alpha = 10.0 * self._ctrl_Ts
+        self.alpha = 0.1
         self._prev_switch = (0, 0, 0)
     
     # ----------------------------------------------------------------
@@ -395,7 +394,7 @@ class MPFMPCCController:
         # Update α (Eq.31): α = Tc / (0.1 + M·∫Ed·dt)
         self.alpha = Tc / (0.1 + self.M * abs(self.Ed_integral) + 1e-10)
         # Keep α within reasonable bounds
-        self.alpha = max(1e-3, min(self.alpha, 10.0))
+        self.alpha = max(0.01, min(self.alpha, 10.0))
         
         # ============================================================
         # Step 6: Save history for next period
