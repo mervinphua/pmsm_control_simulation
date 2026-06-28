@@ -26,8 +26,6 @@ RPM2RAD = 2.0 * math.pi / 60.0
 # ---- 电机参数组 ----
 M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
 M_2XALL = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf
-M_5R    = dict(Rs=2.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5x R only
-M_5L    = dict(Rs=0.5, Ld=0.0075, Lq=0.0075, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5x L only
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
@@ -47,7 +45,7 @@ def run_sim(dt, te, wref, tl, ctype, mkw=None):
     else:
         ctrl = MPFMPCCController(Ts=dt, Udc=inv.Vdc)
     
-    wl, idl, iql = np.zeros(n), np.zeros(n), np.zeros(n)
+    wl, idl, iql, ial, ibl, icl = np.zeros(n),np.zeros(n),np.zeros(n),np.zeros(n),np.zeros(n),np.zeros(n)
     vp, vq = 0.0, 0.0
     
     for k in range(n):
@@ -67,9 +65,14 @@ def run_sim(dt, te, wref, tl, ctype, mkw=None):
         s = motor.step(vda, vqa, dt)
         wl[k] = s["omega_m"]/RPM2RAD
         idl[k] = s["id"]; iql[k] = s["iq"]
+        # phase currents for THD
+        ia_a, ib_a = inv_park(s["id"], s["iq"], s["theta_e"])
+        ia_p, ib_p, ic_p = inv_clarke(ia_a, ib_a)
+        ial[k]=ia_p; ibl[k]=ib_p; icl[k]=ic_p
         vp, vq = vda, vqa
     
-    return {"t": np.arange(n)*dt, "w": wl, "wr": wref, "id": idl, "iq": iql}
+    return {"t": np.arange(n)*dt, "w": wl, "wr": wref,
+            "id": idl, "iq": iql, "ia": ial, "ib": ibl, "ic": icl}
 
 
 def plot3x3(data, title, fname):
@@ -92,7 +95,7 @@ def plot3x3(data, title, fname):
 # ====================  Experiment 1: Nominal ====================
 def exp1():
     print("\n--- Exp 1: Nominal ---")
-    dt, te = 2e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
+    dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
     r = {}
@@ -106,7 +109,7 @@ def exp1():
 def exp2():
     """3 param sets: Nominal | 2R,2L,2psif | 5xR. Conv MPCC uses M_NOM always."""
     print("\n--- Exp 2: Parameter Mismatch ---")
-    dt, te = 2e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
+    dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
     
@@ -117,7 +120,6 @@ def exp2():
     for col, (mkw, mlabel) in enumerate([
         (M_NOM,   "Nominal"),
         (M_2XALL, "2R,2L,2psif"),
-        (M_5R,    "5xR only"),
     ]):
         for row, (ct, clabel) in enumerate([("PI","PI"), ("CMPC","CMPC"), ("MPF","MPC")]):
             print(f"  {clabel} @ {mlabel}...")
@@ -137,7 +139,7 @@ def exp2():
 # ====================  Experiment 3: Load ====================
 def exp3():
     print("\n--- Exp 3: Load Disturbance ---")
-    dt, te = 2e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
+    dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.full(n, 1500.0)
     tl = np.where((t>2.0)&(t<3.5), 0.05, 0.0)
     r = {}

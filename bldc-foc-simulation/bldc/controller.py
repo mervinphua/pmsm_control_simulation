@@ -234,7 +234,7 @@ class MPFMPCCController:
         self.Ed_prev = 0.0           # Ed(k-1)
         self.M = 0.1                 # Integral gain factor (Eq.22)
         # α₀: paper uses 10·Tc for THEIR motor; we scale to OUR motor's L/R ratio
-        self.alpha = 0.1  # Manual init (~Ts/L equivalent for this motor)
+        self.alpha = 0.05  # ≈Ts/L (80us/0.0015H) for 12.5kHz control
         
         # --- 8 switching states of 2L-VSI ---
         # (Eq.3 in paper)  S ∈ {000, 100, 110, 010, 011, 001, 101, 111}
@@ -394,7 +394,7 @@ class MPFMPCCController:
         # Update α (Eq.31): α = Tc / (0.1 + M·∫Ed·dt)
         self.alpha = Tc / (0.1 + self.M * abs(self.Ed_integral) + 1e-10)
         # Keep α within reasonable bounds
-        self.alpha = max(0.01, min(self.alpha, 10.0))
+        self.alpha = max(0.02, min(self.alpha, 10.0))
         
         # ============================================================
         # Step 6: Save history for next period
