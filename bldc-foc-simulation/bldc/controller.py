@@ -85,6 +85,109 @@ class FOCController:
 
 
 # ============================================================
+# Conventional FCS-MPCC (uses motor parameters in prediction)
+# Reference: Zhang et al., IEEE TIE, 2024, Eq.(1)-(7)
+# ============================================================
+
+@dataclass
+class ConventionalMPCCController:
+    """
+    Conventional FCS-MPCC - uses motor parameters R, L, psi_f
+    in the prediction model. This is the BASELINE that the paper
+    compares MPF-MPCC against.
+    
+    When parameters are wrong, prediction is inaccurate and 
+    performance degrades → this is the key weakness that MPF-MPCC solves.
+    """
+    Ts: float                   # Control period [s]
+    Udc: float = 24.0           # DC-bus voltage [V]
+    P: int = 4                  # Pole pairs
+    
+    # --- Motor parameters (USED in prediction model) ---
+    Rs: float = 0.5             # Stator resistance [ohm]
+    Ls: float = 0.0015          # Stator inductance (Ld=Lq for SPMSM) [H]
+    psi_f: float = 0.01         # Permanent magnet flux linkage [Wb]
+    
+    # --- Speed PI ---
+    Kp_w: float = 0.01
+    Ki_w: float = 0.1
+    Iq_max: float = 20.0
+    Vmax: float = 12.0
+    
+    def __post_init__(self) -> None:
+        self.speed_pi = PIController(self.Kp_w, self.Ki_w, -self.Iq_max, self.Iq_max)
+        
+        # 8 switching states
+        self._switch_states = [
+            (0,0,0),(1,0,0),(1,1,0),(0,1,0),(0,1,1),(0,0,1),(1,0,1),(1,1,1)]
+        
+        # Previously applied voltage (for delay compensation)
+        self._prev_vd = 0.0
+        self._prev_vq = 0.0
+    
+    @staticmethod
+    def _switch_to_dq(sw, Udc, theta_e):
+        sa, sb, sc = sw
+        va = (2*sa - sb - sc) / 3.0 * Udc
+        vb = (2*sb - sa - sc) / 3.0 * Udc
+        vc = (2*sc - sa - sb) / 3.0 * Udc
+        v_alpha = (2/3)*(va - 0.5*vb - 0.5*vc)
+        v_beta  = (2/3)*(math.sqrt(3)/2*vb - math.sqrt(3)/2*vc)
+        cos_t, sin_t = math.cos(theta_e), math.sin(theta_e)
+        vd =  v_alpha*cos_t + v_beta*sin_t
+        vq = -v_alpha*sin_t + v_beta*cos_t
+        return vd, vq
+    
+    def update(self, omega_ref, omega_m, id_k, iq_k, theta_e, dt):
+        omega_e = self.P * omega_m
+        Ts = self.Ts
+        
+        # Speed loop PI
+        iq_ref = self.speed_pi.update(omega_ref - omega_m, dt)
+        id_ref = 0.0
+        
+        # --- Eq.(5): Delay compensation using motor parameters ---
+        # D = [[1-R*Ts/L, -Ts*ωe], [Ts*ωe, 1-R*Ts/L]]
+        # Uses R, L for compensation!
+        d11 = 1.0 - self.Rs * Ts / self.Ls
+        d12 = -Ts * omega_e
+        d21 = Ts * omega_e
+        d22 = 1.0 - self.Rs * Ts / self.Ls
+        
+        id_k1 = d11*id_k + d12*iq_k + (Ts/self.Ls)*self._prev_vd
+        iq_k1 = d21*id_k + d22*iq_k + (Ts/self.Ls)*self._prev_vq - (Ts*omega_e*self.psi_f/self.Ls)
+        
+        # --- Eq.(6)-(7): Predict for all 8 states and minimize cost ---
+        g_min = float('inf')
+        best_vd = 0.0; best_vq = 0.0
+        
+        for sw in self._switch_states:
+            ud_sw, uq_sw = self._switch_to_dq(sw, self.Udc, theta_e)
+            
+            # Eq.(6): predict i(k+2) using motor parameters R, L, psi_f
+            id_pred = d11*id_k1 + d12*iq_k1 + (Ts/self.Ls)*ud_sw
+            iq_pred = d21*id_k1 + d22*iq_k1 + (Ts/self.Ls)*uq_sw - (Ts*omega_e*self.psi_f/self.Ls)
+            
+            # Eq.(7): cost function
+            g = (id_ref - id_pred)**2 + (iq_ref - iq_pred)**2
+            
+            if g < g_min:
+                g_min = g
+                best_vd = ud_sw
+                best_vq = uq_sw
+        
+        self._prev_vd = best_vd
+        self._prev_vq = best_vq
+        
+        vmag = math.hypot(best_vd, best_vq)
+        if vmag > self.Vmax and vmag > 0.0:
+            scale = self.Vmax/vmag
+            best_vd *= scale; best_vq *= scale
+        
+        return best_vd, best_vq
+
+
+# ============================================================
 # MPF-MPCC (Motor-Parameter-Free Model Predictive Current Control)
 # Reference: Zhang et al., IEEE TIE, Vol.71, No.6, June 2024
 # ============================================================
