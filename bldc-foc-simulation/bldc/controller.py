@@ -35,7 +35,7 @@ class FOCController:
     Lq: float = 0.0015
     Ke: float = 0.01
     # Voltage limit (magnitude of dq voltage vector)
-    Vmax: float = 12.0
+    Vmax: float = 24.0
     # Current limit for iq reference from speed loop
     Iq_max: float = 20.0
     # Gains (tuned for ~1000 rad/s current loop, ~50 rad/s speed loop)
@@ -112,7 +112,7 @@ class ConventionalMPCCController:
     Kp_w: float = 0.01
     Ki_w: float = 0.1
     Iq_max: float = 20.0
-    Vmax: float = 12.0
+    Vmax: float = 24.0
     
     def __post_init__(self) -> None:
         self.speed_pi = PIController(self.Kp_w, self.Ki_w, -self.Iq_max, self.Iq_max)
@@ -213,7 +213,7 @@ class MPFMPCCController:
     Iq_max: float = 20.0             # Current limit [A]
     
     # --- Voltage limit ---
-    Vmax: float = 12.0               # Max dq voltage magnitude [V]
+    Vmax: float = 24.0               # Max dq voltage magnitude [V]
     
     def __post_init__(self) -> None:
         # MPC effective control period (paper uses 15 kHz)

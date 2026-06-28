@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ThreePhaseInverter:
-    Vdc: float = 24.0
+    Vdc: float = 48.0
 
     def _sector(self, valpha: float, vbeta: float) -> int:
         # Determine SVPWM sector (1..6) from alpha-beta reference
