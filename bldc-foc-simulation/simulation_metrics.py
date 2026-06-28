@@ -43,41 +43,31 @@ def run_sim(dt, te, wref, tl, ctype, mkw=None):
     return {"t":np.arange(n)*dt,"w":wl,"wr":wref,"id":idl,"iq":iql,"ia":ial,"ib":ibl,"ic":icl}
 
 
-def compute_thd(signal, fs, f0=None):
-    """Compute THD of a periodic signal using FFT."""
+def compute_thd(signal, fs, f_elec):
+    """THD via FFT using known electrical fundamental frequency."""
     N = len(signal)
-    if f0 is None: f0 = fs / N  * 10  # guess fundamental ~10th bin
-    # Remove DC, apply Hanning window
     x = signal - np.mean(signal)
     w = np.hanning(N)
     X = np.fft.rfft(x * w)
-    freqs = np.fft.rfftfreq(N, 1/fs)
-    # Find fundamental (max near expected frequency)
-    f0_idx = np.argmax(np.abs(X[1:])) + 1  # skip DC
-    fundamental = np.abs(X[f0_idx])
-    # Sum harmonics (multiples of fundamental)
-    harm_power = 0
-    for h in range(2, 20):
+    f0_idx = int(round(f_elec * N / fs))
+    if f0_idx < 1 or f0_idx >= len(X): return 0.0
+    fundamental = max(np.abs(X[f0_idx]), 1e-10)
+    harm_power = 0.0
+    for h in range(2, 15):
         idx = f0_idx * h
-        if idx < len(X):
-            harm_power += np.abs(X[idx])**2
-    if fundamental > 1e-10:
-        return np.sqrt(harm_power) / fundamental * 100
-    return 0.0
+        if idx < len(X): harm_power += np.abs(X[idx])**2
+    return np.sqrt(harm_power) / fundamental * 100
 
 
-def compute_metrics(data, steady_start, steady_end):
-    """Compute id RMS error, iq tracking error, THD over steady-state window."""
+def compute_metrics(data, steady_start, steady_end, f_elec):
+    """Compute id RMS, iq std, THD over steady-state window."""
     mask = (data["t"] >= steady_start) & (data["t"] <= steady_end)
-    # id should be 0
     id_rms = np.sqrt(np.mean(data["id"][mask]**2))
-    # iq tracking (uses speed PI, estimate iq_ref from steady speed)
     iq_std = np.std(data["iq"][mask])
-    # THD of phase a
     dt = data["t"][1] - data["t"][0]
     fs = 1.0 / dt
     ia_ss = data["ia"][mask]
-    thd = compute_thd(ia_ss, fs)
+    thd = compute_thd(ia_ss, fs, f_elec)
     return id_rms, iq_std, thd
 
 
@@ -110,7 +100,7 @@ def exp_metrics():
         for ci, (mk, ml) in enumerate(mks):
             print(f"  {cl} @ {ml}...")
             d = run_sim(dt, te, wr, tl, ct, mk)
-            ir, iq_s, th = compute_metrics(d, 2.5, 5.0)
+            ir, iq_s, th = compute_metrics(d, 3.0, 4.5, 4*2000/60.0)
             id_rms_arr[ri,ci] = ir
             iq_std_arr[ri,ci] = iq_s
             thd_arr[ri,ci]   = th
