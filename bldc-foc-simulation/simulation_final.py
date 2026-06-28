@@ -24,8 +24,10 @@ from bldc.transforms import clarke, inv_clarke, inv_park, park
 RPM2RAD = 2.0 * math.pi / 60.0
 
 # ---- 电机参数组 ----
-M_NOM = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
-M_2X  = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.01, J=1e-4, B=1e-4, P=4)
+M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
+M_2XALL = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R,2L,2ψf
+M_5R    = dict(Rs=2.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5x R only
+M_5L    = dict(Rs=0.5, Ld=0.0075, Lq=0.0075, Ke=0.01, J=1e-4, B=1e-4, P=4)  # 5x L only
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
@@ -100,17 +102,36 @@ def exp1():
     return r
 
 
-# ====================  Experiment 2: Mismatch ====================
+# ====================  Experiment 2: Parameter Mismatch ====================
 def exp2():
-    print("\n--- Exp 2: Parameter Mismatch (2R, 2L) ---")
+    """3 param sets: Nominal | 2R,2L,2psif | 5xR. Conv MPCC uses M_NOM always."""
+    print("\n--- Exp 2: Parameter Mismatch ---")
     dt, te = 2e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
-    r = {}
-    for lb, ct in [("PI","PI"),("CMPC","CMPC"),("MPF","MPC")]:
-        print(f"  {lb} (motor=2R,2L)..."); r[lb] = run_sim(dt, te, wr, tl, ct, M_2X)
-    plot3x3(r, "Exp 2: Mismatch (2R,2L) — MPF-MPCC unaffected, Conv MPCC degrades", "fig_exp2.png")
-    return r
+    
+    fig, ax = plt.subplots(3, 3, figsize=(16, 10))
+    yk = [("w","wr"), ("id",None), ("iq",None)]
+    yl = ["Speed [rpm]", "id [A]", "iq [A]"]
+    
+    for col, (mkw, mlabel) in enumerate([
+        (M_NOM,   "Nominal"),
+        (M_2XALL, "2R,2L,2psif"),
+        (M_5R,    "5xR only"),
+    ]):
+        for row, (ct, clabel) in enumerate([("PI","PI"), ("CMPC","CMPC"), ("MPF","MPC")]):
+            print(f"  {clabel} @ {mlabel}...")
+            r = run_sim(dt, te, wr, tl, ct, mkw)
+            a = ax[row, col]
+            a.plot(r["t"], r[yk[row][0]], lw=1.0)
+            if yk[row][1]: a.plot(r["t"], r[yk[row][1]], "k--", lw=0.7)
+            a.set_title(f"{clabel} ({mlabel})", fontsize=8)
+            a.set_ylabel(yl[row]); a.grid(True); a.set_xlabel("Time [s]")
+    
+    fig.suptitle("Exp 2: Parameter Mismatch — Conv MPCC prediction uses M_NOM",
+                 fontweight="bold", fontsize=12)
+    fig.tight_layout(); fig.savefig("fig_exp2.png", dpi=120)
+    print("  [OK] fig_exp2.png"); plt.close(fig)
 
 
 # ====================  Experiment 3: Load ====================
