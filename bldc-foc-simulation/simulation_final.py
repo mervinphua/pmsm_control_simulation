@@ -107,13 +107,13 @@ def exp1():
 
 # ====================  Experiment 2: Parameter Mismatch ====================
 def exp2():
-    """3 param sets: Nominal | 2R,2L,2psif | 5xR. Conv MPCC uses M_NOM always."""
+    """2 param sets: Nominal | 2R,2L,2psif. Conv MPCC uses M_NOM always."""
     print("\n--- Exp 2: Parameter Mismatch ---")
     dt, te = 8e-5, 5.0; n = int(te/dt); t = np.arange(n)*dt
     wr = np.where(t<0.5, 0.0, np.where(t<2.0, 1000.0, 2000.0))
     tl = np.zeros(n)
     
-    fig, ax = plt.subplots(3, 3, figsize=(16, 10))
+    fig, ax = plt.subplots(3, 2, figsize=(12, 10))
     yk = [("w","wr"), ("id",None), ("iq",None)]
     yl = ["Speed [rpm]", "id [A]", "iq [A]"]
     
