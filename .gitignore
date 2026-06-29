@@ -24,6 +24,8 @@ Thumbs.db
 *.tmp
 *.log
 *.txt
+!requirements.txt
+!**/requirements.txt
 
 # ==== 论文相关文件（不上传） ====
 
@@ -40,23 +42,23 @@ Thumbs.db
 Motor-Parameter-Free_Model_Predictive_Current_Control_for_PMSM_Drives.pdf
 
 # 论文中的原始图片（fig1~fig17 为原论文截图）
-bldc-foc-simulation/fig1.gif
-bldc-foc-simulation/fig2.gif
-bldc-foc-simulation/fig3.gif
-bldc-foc-simulation/fig4.gif
-bldc-foc-simulation/fig5.gif
-bldc-foc-simulation/fig6.gif
-bldc-foc-simulation/fig7.gif
-bldc-foc-simulation/fig8.gif
-bldc-foc-simulation/fig9.gif
-bldc-foc-simulation/fig10.gif
-bldc-foc-simulation/fig11.gif
-bldc-foc-simulation/fig12.gif
-bldc-foc-simulation/fig13.gif
-bldc-foc-simulation/fig14.gif
-bldc-foc-simulation/fig15.gif
-bldc-foc-simulation/fig16.gif
-bldc-foc-simulation/fig17.gif
+pmsm-foc-simulation/fig1.gif
+pmsm-foc-simulation/fig2.gif
+pmsm-foc-simulation/fig3.gif
+pmsm-foc-simulation/fig4.gif
+pmsm-foc-simulation/fig5.gif
+pmsm-foc-simulation/fig6.gif
+pmsm-foc-simulation/fig7.gif
+pmsm-foc-simulation/fig8.gif
+pmsm-foc-simulation/fig9.gif
+pmsm-foc-simulation/fig10.gif
+pmsm-foc-simulation/fig11.gif
+pmsm-foc-simulation/fig12.gif
+pmsm-foc-simulation/fig13.gif
+pmsm-foc-simulation/fig14.gif
+pmsm-foc-simulation/fig15.gif
+pmsm-foc-simulation/fig16.gif
+pmsm-foc-simulation/fig17.gif
 
 # 从PDF提取的中间文件
 pdf_img_*.png
