@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class BLDCMotor:
+class PMSMMotor:
     Rs: float = 0.5
     Ld: float = 0.0015
     Lq: float = 0.0015

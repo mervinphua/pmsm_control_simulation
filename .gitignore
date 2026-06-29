@@ -1,4 +1,8 @@
-# Python
+# ============================================
+# 只上传代码 + 代码说明，不上传论文内容
+# ============================================
+
+# ---- Python ----
 __pycache__/
 *.pyc
 *.pyo
@@ -6,16 +10,56 @@ __pycache__/
 dist/
 build/
 
-# Jupyter
+# ---- Jupyter ----
 .ipynb_checkpoints/
 
-# VS Code
+# ---- VS Code ----
 .vscode/
 
-# OS
+# ---- OS ----
 Thumbs.db
 .DS_Store
 
-# Temp files
+# ---- Temp files ----
 *.tmp
 *.log
+*.txt
+
+# ==== 论文相关文件（不上传） ====
+
+# 论文正文
+论文正文.md
+论文正文.docx
+~$论文正文.docx
+
+# 论文翻译与方案文档
+论文翻译与复现方案.md
+工作计划.md
+
+# 参考论文 PDF
+Motor-Parameter-Free_Model_Predictive_Current_Control_for_PMSM_Drives.pdf
+
+# 论文中的原始图片（fig1~fig17 为原论文截图）
+bldc-foc-simulation/fig1.gif
+bldc-foc-simulation/fig2.gif
+bldc-foc-simulation/fig3.gif
+bldc-foc-simulation/fig4.gif
+bldc-foc-simulation/fig5.gif
+bldc-foc-simulation/fig6.gif
+bldc-foc-simulation/fig7.gif
+bldc-foc-simulation/fig8.gif
+bldc-foc-simulation/fig9.gif
+bldc-foc-simulation/fig10.gif
+bldc-foc-simulation/fig11.gif
+bldc-foc-simulation/fig12.gif
+bldc-foc-simulation/fig13.gif
+bldc-foc-simulation/fig14.gif
+bldc-foc-simulation/fig15.gif
+bldc-foc-simulation/fig16.gif
+bldc-foc-simulation/fig17.gif
+
+# 从PDF提取的中间文件
+pdf_img_*.png
+pdf_img_*.jpeg
+page6.html
+table_image_*.*

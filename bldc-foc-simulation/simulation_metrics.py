@@ -8,10 +8,10 @@ from __future__ import annotations
 import math, numpy as np, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from bldc.controller import FOCController, ConventionalMPCCController, MPFMPCCController
-from bldc.inverter import ThreePhaseInverter
-from bldc.motor import BLDCMotor
-from bldc.transforms import clarke, inv_clarke, inv_park, park
+from pmsm.controller import FOCController, ConventionalMPCCController, MPFMPCCController
+from pmsm.inverter import ThreePhaseInverter
+from pmsm.motor import PMSMMotor
+from pmsm.transforms import clarke, inv_clarke, inv_park, park
 
 RPM2RAD = 2.0 * math.pi / 60.0
 M_NOM   = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
@@ -19,7 +19,7 @@ M_MIS   = dict(Rs=1.0, Ld=0.003,  Lq=0.003,  Ke=0.02, J=1e-4, B=1e-4, P=4)  # 2R
 
 
 def run_sim(dt, te, wref, tl, ctype, mkw=None):
-    n = len(wref); motor = BLDCMotor(**(mkw or M_NOM)); inv = ThreePhaseInverter()
+    n = len(wref); motor = PMSMMotor(**(mkw or M_NOM)); inv = ThreePhaseInverter()
     if ctype == "PI": ctrl = FOCController()
     elif ctype == "CMPC":
         ctrl = ConventionalMPCCController(Ts=dt, Udc=inv.Vdc,

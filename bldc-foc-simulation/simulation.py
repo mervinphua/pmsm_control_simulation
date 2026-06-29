@@ -1,14 +1,14 @@
-"""Closed-loop FOC simulation driver for a BLDC motor."""
+"""Closed-loop FOC simulation driver for an SPMSM motor."""
 from __future__ import annotations
 
 import math
 
 import numpy as np
 
-from bldc.controller import FOCController
-from bldc.inverter import ThreePhaseInverter
-from bldc.motor import BLDCMotor
-from bldc.transforms import clarke, inv_clarke, inv_park, park
+from pmsm.controller import FOCController
+from pmsm.inverter import ThreePhaseInverter
+from pmsm.motor import PMSMMotor
+from pmsm.transforms import clarke, inv_clarke, inv_park, park
 
 
 RPM_TO_RADS = 2.0 * math.pi / 60.0
@@ -20,7 +20,7 @@ def run_simulation(
     omega_ref_rpm: float | np.ndarray = 2000.0,
     TL: float | np.ndarray = 0.0,
 ) -> dict[str, np.ndarray]:
-    motor = BLDCMotor()
+    motor = PMSMMotor()
     controller = FOCController()
     inverter = ThreePhaseInverter()
 

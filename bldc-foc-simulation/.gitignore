@@ -5,5 +5,7 @@ __pycache__/
 venv/
 .env
 .DS_Store
+# Exclude all png except simulation result figures
 *.png
 !docs/*.png
+!fig_*.png

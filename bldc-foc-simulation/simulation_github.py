@@ -3,16 +3,16 @@ import sys; sys.path.insert(0,'.')
 import numpy as np, math, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from bldc.controller import FOCController, ConventionalMPCCController, MPFMPCCController
-from bldc.inverter import ThreePhaseInverter
-from bldc.motor import BLDCMotor
-from bldc.transforms import clarke, inv_clarke, inv_park, park
+from pmsm.controller import FOCController, ConventionalMPCCController, MPFMPCCController
+from pmsm.inverter import ThreePhaseInverter
+from pmsm.motor import PMSMMotor
+from pmsm.transforms import clarke, inv_clarke, inv_park, park
 
 RPM2RAD = 2*math.pi/60
 M_NOM = dict(Rs=0.5, Ld=0.0015, Lq=0.0015, Ke=0.01, J=1e-4, B=1e-4, P=4)
 
 def run(dt, te, wref, tl, ct):
-    n=len(wref); m=BLDCMotor(**M_NOM); inv=ThreePhaseInverter()
+    n=len(wref); m=PMSMMotor(**M_NOM); inv=ThreePhaseInverter()
     if ct=="PI": c=FOCController()
     elif ct=="CMPC": c=ConventionalMPCCController(Ts=dt,Udc=inv.Vdc,Rs=0.5,Ls=0.0015,psi_f=0.01)
     else: c=MPFMPCCController(Ts=dt,Udc=inv.Vdc)
