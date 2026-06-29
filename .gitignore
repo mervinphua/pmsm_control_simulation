@@ -60,6 +60,12 @@ pmsm-foc-simulation/fig15.gif
 pmsm-foc-simulation/fig16.gif
 pmsm-foc-simulation/fig17.gif
 
+# 论文相关 md（不上传）
+代码实现计划.md
+论文全文翻译.md
+论文翻译与复现方案.md
+工作计划.md
+
 # 从PDF提取的中间文件
 pdf_img_*.png
 pdf_img_*.jpeg
